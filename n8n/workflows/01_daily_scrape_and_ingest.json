@@ -1,0 +1,76 @@
+{
+  "name": "01 Daily Scrape & Ingest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 6 * * *" }]
+        }
+      },
+      "id": "cron_daily",
+      "name": "Cron Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://dummyjson.com/products?limit=100",
+        "options": {}
+      },
+      "id": "http_products",
+      "name": "Fetch Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const products = $json.products || [];\nreturn products.map(p => ({ json: {\n  external_product_id: String(p.id),\n  title: p.title,\n  description: p.description,\n  category: p.category,\n  image_url: p.thumbnail,\n  current_price: p.price,\n  currency: 'USD',\n  competitor_name: 'DemoMart'\n}}));"
+      },
+      "id": "code_normalize",
+      "name": "Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO products (competitor_id, external_product_id, title, description, category, image_url, current_price, currency, updated_at)\nSELECT c.id, $1, $2, $3, $4, $5, $6, $7, NOW()\nFROM competitors c\nWHERE c.name = $8\nON CONFLICT (competitor_id, external_product_id)\nDO UPDATE SET\n  title = EXCLUDED.title,\n  description = EXCLUDED.description,\n  category = EXCLUDED.category,\n  image_url = EXCLUDED.image_url,\n  current_price = EXCLUDED.current_price,\n  currency = EXCLUDED.currency,\n  updated_at = NOW();",
+        "additionalFields": { "queryParams": "={{[$json.external_product_id, $json.title, $json.description, $json.category, $json.image_url, $json.current_price, $json.currency, $json.competitor_name]}}" }
+      },
+      "id": "pg_upsert_product",
+      "name": "Upsert Product",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [910, 240],
+      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO price_history (product_id, observed_at, price, currency)\nSELECT p.id, NOW(), p.current_price, p.currency\nFROM products p\nJOIN competitors c ON c.id = p.competitor_id\nWHERE p.external_product_id = $1 AND c.name = $2;",
+        "additionalFields": { "queryParams": "={{[$json.external_product_id, $json.competitor_name]}}" }
+      },
+      "id": "pg_price_history",
+      "name": "Insert Price Snapshot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [910, 380],
+      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+    }
+  ],
+  "connections": {
+    "Cron Daily": { "main": [[{ "node": "Fetch Products", "type": "main", "index": 0 }]] },
+    "Fetch Products": { "main": [[{ "node": "Normalize", "type": "main", "index": 0 }]] },
+    "Normalize": {
+      "main": [
+        [{ "node": "Upsert Product", "type": "main", "index": 0 }],
+        [{ "node": "Insert Price Snapshot", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

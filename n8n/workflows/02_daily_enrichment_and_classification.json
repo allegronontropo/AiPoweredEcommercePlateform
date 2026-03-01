@@ -1,0 +1,77 @@
+{
+  "name": "02 Daily Enrichment & Classification",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "30 6 * * *" }]
+        }
+      },
+      "id": "cron_enrich",
+      "name": "Cron Enrichment",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [220, 260]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, title, description FROM products WHERE updated_at >= NOW() - INTERVAL '1 day' LIMIT 200;"
+      },
+      "id": "pg_recent_products",
+      "name": "Fetch Recent Products",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [440, 260],
+      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = `${$json.title} ${$json.description || ''}`.toLowerCase();\nlet category = 'other';\nif (/(phone|laptop|tablet|camera|headphone)/.test(text)) category = 'electronics';\nif (/(shirt|shoe|jacket|dress)/.test(text)) category = 'fashion';\nreturn [{ json: { ...$json, inferred_category: category, sentiment_score: (Math.random() * 2 - 1).toFixed(3) } }];"
+      },
+      "id": "code_classify",
+      "name": "Classify + Simulate Sentiment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [670, 260]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE products SET category = COALESCE(category, $1), updated_at = NOW() WHERE id = $2;",
+        "additionalFields": { "queryParams": "={{[$json.inferred_category, $json.id]}}" }
+      },
+      "id": "pg_update_category",
+      "name": "Update Category",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [920, 200],
+      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO sentiment_scores (product_id, score, label, model_name) VALUES ($1, $2, CASE WHEN $2::numeric > 0.2 THEN 'positive' WHEN $2::numeric < -0.2 THEN 'negative' ELSE 'neutral' END, 'simulated-model');",
+        "additionalFields": { "queryParams": "={{[$json.id, $json.sentiment_score]}}" }
+      },
+      "id": "pg_insert_sentiment",
+      "name": "Insert Sentiment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [920, 320],
+      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+    }
+  ],
+  "connections": {
+    "Cron Enrichment": { "main": [[{ "node": "Fetch Recent Products", "type": "main", "index": 0 }]] },
+    "Fetch Recent Products": { "main": [[{ "node": "Classify + Simulate Sentiment", "type": "main", "index": 0 }]] },
+    "Classify + Simulate Sentiment": {
+      "main": [
+        [{ "node": "Update Category", "type": "main", "index": 0 }],
+        [{ "node": "Insert Sentiment", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}
