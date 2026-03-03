@@ -61,6 +61,28 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.get('/api/price-trends', async (req, res) => {
+  const { competitor, category, days = 30 } = req.query;
+  
+  let query = `
+    SELECT 
+      DATE(observed_at) as day,
+      AVG(price) as avg_price
+    FROM price_history ph
+    JOIN products p ON p.id = ph.product_id
+    JOIN competitors c ON c.id = p.competitor_id
+    WHERE observed_at >= NOW() - INTERVAL '${days} days'
+  `;
+  
+  if (competitor) query += ` AND c.name = '${competitor}'`;
+  if (category) query += ` AND p.category = '${category}'`;
+  
+  query += ` GROUP BY DATE(observed_at) ORDER BY day ASC`; // ← AJOUTEZ ORDER BY
+  
+  const result = await pool.query(query);
+  res.json(result.rows);
+});
+
+app.get('/api/price-trends', async (req, res) => {
   const days = toInt(req.query.days, 30);
   const values = [days];
   const clauses = [];
@@ -91,6 +113,7 @@ app.get('/api/price-trends', async (req, res) => {
   const { rows } = await pool.query(sql, values);
   res.json(rows);
 });
+
 
 app.get('/api/sentiment-trends', async (req, res) => {
   const days = toInt(req.query.days, 30);
@@ -123,6 +146,7 @@ app.get('/api/sentiment-trends', async (req, res) => {
   const { rows } = await pool.query(sql, values);
   res.json(rows);
 });
+
 
 app.get('/api/alerts', async (req, res) => {
   const days = toInt(req.query.days, 7);

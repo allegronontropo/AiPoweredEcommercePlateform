@@ -24,6 +24,14 @@ services:
       DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-compintel}
       DB_POSTGRESDB_USER: ${POSTGRES_USER:-compintel}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-compintel}
+<<<<<<< ours
+<<<<<<< ours
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
       N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-true}
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-admin123}
@@ -31,6 +39,15 @@ services:
       N8N_PORT: 5678
       N8N_PROTOCOL: http
       WEBHOOK_URL: http://localhost:5678
+<<<<<<< ours
+<<<<<<< ours
+      WEBHOOK_ENRICHMENT_URL: ${WEBHOOK_ENRICHMENT_URL}
+      SMTP_FROM: ${SMTP_FROM}
+      ALERT_EMAIL: ${ALERT_EMAIL}
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     depends_on:
       - postgres
     volumes:
@@ -43,7 +60,15 @@ services:
     container_name: compintel-api
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://compintel:compintel@postgres:5432/compintel}
+<<<<<<< ours
+<<<<<<< ours
+      # OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+=======
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+>>>>>>> theirs
+=======
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+>>>>>>> theirs
       PORT: 3000
     depends_on:
       - postgres

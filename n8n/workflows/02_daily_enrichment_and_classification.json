@@ -1,4 +1,33 @@
 {
+<<<<<<< ours
+<<<<<<< ours
+  "name": "02 Enrichment Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "enrich",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const productIds = $json.productIds;\nif (!productIds || !Array.isArray(productIds)) {\n  throw new Error('Missing or invalid productIds array');\n}\n// Build SQL parameter placeholders ($1, $2, ...)\nconst placeholders = productIds.map((_, i) => `$${i+1}`).join(',');\n// Return the query and parameters separately\nreturn [{\n  json: {\n    query: `SELECT id, title, description, category FROM products WHERE id IN (${placeholders})`,\n    params: productIds\n  }\n}];"
+      },
+      "id": "code_build_query",
+      "name": "Build Query from IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 300]
+=======
+=======
+>>>>>>> theirs
   "name": "02 Daily Enrichment & Classification",
   "nodes": [
     {
@@ -12,10 +41,83 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
       "position": [220, 260]
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     },
     {
       "parameters": {
         "operation": "executeQuery",
+<<<<<<< ours
+<<<<<<< ours
+        "query": "={{ $json.query }}",
+        "additionalFields": {
+          "queryParams": "={{ $json.params }}"
+        }
+      },
+      "id": "pg_fetch_products",
+      "name": "Fetch Products by IDs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// If no products found, exit early\nif ($input.all().length === 0) {\n  return [];\n}\n// Prepare each product for classification\nreturn $input.all().map(item => ({\n  json: {\n    id: item.json.id,\n    title: item.json.title,\n    description: item.json.description,\n    // Combine title and description for classification\n    text: `${item.json.title} ${item.json.description || ''}`.substring(0, 500)\n  }\n}));"
+      },
+      "id": "code_prep_classify",
+      "name": "Prepare for Classification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.OPENAI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"model\": \"gpt-3.5-turbo\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a product classifier. Given a product title and description, output only one category from this list: electronics, fashion, home, sports, other. Do not output anything else.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"={{ $json.text }}\"\n    }\n  ],\n  \"temperature\": 0\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http_openai_classify",
+      "name": "Classify with OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1130, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\n// Extract category from OpenAI response\nlet category = 'other';\nif (response.choices && response.choices[0] && response.choices[0].message) {\n  category = response.choices[0].message.content.trim().toLowerCase();\n  // Validate category\n  const valid = ['electronics', 'fashion', 'home', 'sports', 'other'];\n  if (!valid.includes(category)) category = 'other';\n}\n// Simulate sentiment score (replace with real sentiment API later)\nconst sentiment = (Math.random() * 2 - 1).toFixed(3);\n// Return with original id\nreturn [{\n  json: {\n    id: $json.id,\n    category: category,\n    sentiment: parseFloat(sentiment)\n  }\n}];"
+      },
+      "id": "code_parse_openai",
+      "name": "Parse OpenAI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1130, 380]
+=======
+=======
+>>>>>>> theirs
         "query": "SELECT id, title, description FROM products WHERE updated_at >= NOW() - INTERVAL '1 day' LIMIT 200;"
       },
       "id": "pg_recent_products",
@@ -34,30 +136,176 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [670, 260]
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     },
     {
       "parameters": {
         "operation": "executeQuery",
+<<<<<<< ours
+<<<<<<< ours
+        "query": "UPDATE products SET category = $1, updated_at = NOW() WHERE id = $2;",
+        "additionalFields": {
+          "queryParams": "={{ [$json.category, $json.id] }}"
+        }
+=======
         "query": "UPDATE products SET category = COALESCE(category, $1), updated_at = NOW() WHERE id = $2;",
         "additionalFields": { "queryParams": "={{[$json.inferred_category, $json.id]}}" }
+>>>>>>> theirs
+=======
+        "query": "UPDATE products SET category = COALESCE(category, $1), updated_at = NOW() WHERE id = $2;",
+        "additionalFields": { "queryParams": "={{[$json.inferred_category, $json.id]}}" }
+>>>>>>> theirs
       },
       "id": "pg_update_category",
       "name": "Update Category",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
+<<<<<<< ours
+<<<<<<< ours
+      "position": [1370, 240],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Postgres"
+        }
+      }
+=======
       "position": [920, 200],
       "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+>>>>>>> theirs
+=======
+      "position": [920, 200],
+      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+>>>>>>> theirs
     },
     {
       "parameters": {
         "operation": "executeQuery",
+<<<<<<< ours
+<<<<<<< ours
+        "query": "INSERT INTO sentiment_scores (product_id, score, label, model_name)\nVALUES ($1, $2,\n  CASE WHEN $2 > 0.2 THEN 'positive'\n       WHEN $2 < -0.2 THEN 'negative'\n       ELSE 'neutral'\n  END,\n  'openai-simulated');",
+        "additionalFields": {
+          "queryParams": "={{ [$json.id, $json.sentiment] }}"
+        }
+=======
         "query": "INSERT INTO sentiment_scores (product_id, score, label, model_name) VALUES ($1, $2, CASE WHEN $2::numeric > 0.2 THEN 'positive' WHEN $2::numeric < -0.2 THEN 'negative' ELSE 'neutral' END, 'simulated-model');",
         "additionalFields": { "queryParams": "={{[$json.id, $json.sentiment_score]}}" }
+>>>>>>> theirs
+=======
+        "query": "INSERT INTO sentiment_scores (product_id, score, label, model_name) VALUES ($1, $2, CASE WHEN $2::numeric > 0.2 THEN 'positive' WHEN $2::numeric < -0.2 THEN 'negative' ELSE 'neutral' END, 'simulated-model');",
+        "additionalFields": { "queryParams": "={{[$json.id, $json.sentiment_score]}}" }
+>>>>>>> theirs
       },
       "id": "pg_insert_sentiment",
       "name": "Insert Sentiment",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
+<<<<<<< ours
+<<<<<<< ours
+      "position": [1370, 380],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Optional: log completion\nconsole.log(`Enriched product ${$json.id}`);\nreturn [];"
+      },
+      "id": "code_log",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1370, 520]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Query from IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Query from IDs": {
+      "main": [
+        [
+          {
+            "node": "Fetch Products by IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Products by IDs": {
+      "main": [
+        [
+          {
+            "node": "Prepare for Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Classification": {
+      "main": [
+        [
+          {
+            "node": "Classify with OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify with OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Parse OpenAI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OpenAI Response": {
+      "main": [
+        [
+          {
+            "node": "Update Category",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+=======
+=======
+>>>>>>> theirs
       "position": [920, 320],
       "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
     }
@@ -69,9 +317,25 @@
       "main": [
         [{ "node": "Update Category", "type": "main", "index": 0 }],
         [{ "node": "Insert Sentiment", "type": "main", "index": 0 }]
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
       ]
     }
   },
   "active": false,
+<<<<<<< ours
+<<<<<<< ours
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
+=======
   "settings": {}
 }
+>>>>>>> theirs
+=======
+  "settings": {}
+}
+>>>>>>> theirs

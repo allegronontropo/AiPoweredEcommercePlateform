@@ -11,13 +11,41 @@
       "name": "Cron Daily",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
+<<<<<<< ours
+<<<<<<< ours
+      "position": [250, 300]
+=======
       "position": [240, 300]
+>>>>>>> theirs
+=======
+      "position": [240, 300]
+>>>>>>> theirs
     },
     {
       "parameters": {
         "url": "https://dummyjson.com/products?limit=100",
         "options": {}
       },
+<<<<<<< ours
+<<<<<<< ours
+      "id": "http_fetch",
+      "name": "Fetch Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate response\nconst items = $json.products;\nif (!items || !Array.isArray(items)) {\n  throw new Error('Invalid API response: products array missing');\n}\n// Normalize each product\nreturn items.map(p => ({\n  json: {\n    external_product_id: String(p.id),\n    title: p.title,\n    description: p.description,\n    category: p.category,\n    image_url: p.thumbnail,\n    current_price: p.price,\n    currency: 'USD',\n    competitor_name: 'DemoMart'\n  }\n}));"
+      },
+      "id": "code_normalize",
+      "name": "Normalize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+=======
+=======
+>>>>>>> theirs
       "id": "http_products",
       "name": "Fetch Products",
       "type": "n8n-nodes-base.httpRequest",
@@ -33,23 +61,196 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [680, 300]
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     },
     {
       "parameters": {
         "operation": "executeQuery",
+<<<<<<< ours
+<<<<<<< ours
+        "query": "WITH competitor AS (\n  SELECT id FROM competitors WHERE name = $1\n)\nINSERT INTO products (competitor_id, external_product_id, title, description, category, image_url, current_price, currency, updated_at)\nSELECT (SELECT id FROM competitor), $2, $3, $4, $5, $6, $7, $8, NOW()\nON CONFLICT (competitor_id, external_product_id)\nDO UPDATE SET\n  title = EXCLUDED.title,\n  description = EXCLUDED.description,\n  category = EXCLUDED.category,\n  image_url = EXCLUDED.image_url,\n  current_price = EXCLUDED.current_price,\n  currency = EXCLUDED.currency,\n  updated_at = NOW()\nRETURNING id, external_product_id, current_price, currency;",
+        "additionalFields": {
+          "queryParams": "={{ [$json.competitor_name, $json.external_product_id, $json.title, $json.description, $json.category, $json.image_url, $json.current_price, $json.currency] }}"
+        }
+=======
         "query": "INSERT INTO products (competitor_id, external_product_id, title, description, category, image_url, current_price, currency, updated_at)\nSELECT c.id, $1, $2, $3, $4, $5, $6, $7, NOW()\nFROM competitors c\nWHERE c.name = $8\nON CONFLICT (competitor_id, external_product_id)\nDO UPDATE SET\n  title = EXCLUDED.title,\n  description = EXCLUDED.description,\n  category = EXCLUDED.category,\n  image_url = EXCLUDED.image_url,\n  current_price = EXCLUDED.current_price,\n  currency = EXCLUDED.currency,\n  updated_at = NOW();",
         "additionalFields": { "queryParams": "={{[$json.external_product_id, $json.title, $json.description, $json.category, $json.image_url, $json.current_price, $json.currency, $json.competitor_name]}}" }
+>>>>>>> theirs
+=======
+        "query": "INSERT INTO products (competitor_id, external_product_id, title, description, category, image_url, current_price, currency, updated_at)\nSELECT c.id, $1, $2, $3, $4, $5, $6, $7, NOW()\nFROM competitors c\nWHERE c.name = $8\nON CONFLICT (competitor_id, external_product_id)\nDO UPDATE SET\n  title = EXCLUDED.title,\n  description = EXCLUDED.description,\n  category = EXCLUDED.category,\n  image_url = EXCLUDED.image_url,\n  current_price = EXCLUDED.current_price,\n  currency = EXCLUDED.currency,\n  updated_at = NOW();",
+        "additionalFields": { "queryParams": "={{[$json.external_product_id, $json.title, $json.description, $json.category, $json.image_url, $json.current_price, $json.currency, $json.competitor_name]}}" }
+>>>>>>> theirs
       },
       "id": "pg_upsert_product",
       "name": "Upsert Product",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
+<<<<<<< ours
+<<<<<<< ours
+      "position": [850, 240],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare data for price history using the returned product ID\nreturn [{\n  json: {\n    product_id: $json.id,\n    price: $json.current_price,\n    currency: $json.currency,\n    observed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "code_prepare_price",
+      "name": "Prepare Price Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 380]
+=======
       "position": [910, 240],
       "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+>>>>>>> theirs
+=======
+      "position": [910, 240],
+      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
+>>>>>>> theirs
     },
     {
       "parameters": {
         "operation": "executeQuery",
+<<<<<<< ours
+<<<<<<< ours
+        "query": "INSERT INTO price_history (product_id, observed_at, price, currency)\nVALUES ($1, $2, $3, $4);",
+        "additionalFields": {
+          "queryParams": "={{ [$json.product_id, $json.observed_at, $json.price, $json.currency] }}"
+        }
+      },
+      "id": "pg_insert_price",
+      "name": "Insert Price History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1070, 380],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all product IDs that were just processed to trigger enrichment\nconst productIds = $input.all().map(item => item.json.product_id);\nreturn [{ json: { productIds } }];"
+      },
+      "id": "code_collect_ids",
+      "name": "Collect Product IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1070, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "{{ $env.WEBHOOK_ENRICHMENT_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"productIds\": $json.productIds}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "http_trigger_enrichment",
+      "name": "Trigger Enrichment Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1290, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// If any error occurs, log it (this node would be connected to error output)\nconsole.error('Workflow failed:', $json.error);\nreturn [];"
+      },
+      "id": "code_error_handler",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 550]
+    }
+  ],
+  "connections": {
+    "Cron Daily": {
+      "main": [
+        [
+          {
+            "node": "Fetch Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Products": {
+      "main": [
+        [
+          {
+            "node": "Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Data": {
+      "main": [
+        [
+          {
+            "node": "Upsert Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Product": {
+      "main": [
+        [
+          {
+            "node": "Prepare Price Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Product IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Price Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Insert Price History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Product IDs": {
+      "main": [
+        [
+          {
+            "node": "Trigger Enrichment Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+=======
+=======
+>>>>>>> theirs
         "query": "INSERT INTO price_history (product_id, observed_at, price, currency)\nSELECT p.id, NOW(), p.current_price, p.currency\nFROM products p\nJOIN competitors c ON c.id = p.competitor_id\nWHERE p.external_product_id = $1 AND c.name = $2;",
         "additionalFields": { "queryParams": "={{[$json.external_product_id, $json.competitor_name]}}" }
       },
@@ -68,9 +269,25 @@
       "main": [
         [{ "node": "Upsert Product", "type": "main", "index": 0 }],
         [{ "node": "Insert Price Snapshot", "type": "main", "index": 0 }]
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
       ]
     }
   },
   "active": false,
+<<<<<<< ours
+<<<<<<< ours
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
+=======
   "settings": {}
 }
+>>>>>>> theirs
+=======
+  "settings": {}
+}
+>>>>>>> theirs

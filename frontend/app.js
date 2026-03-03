@@ -30,6 +30,22 @@ async function loadCompetitors() {
     competitors.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
 }
 
+<<<<<<< ours
+<<<<<<< ours
+// // function renderLineChart(ctx, rows) {
+// //   if (priceChart) priceChart.destroy();
+// //   priceChart = new Chart(ctx, {
+// //     type: 'line',
+// //     data: {
+// //       labels: rows.map(r => r.day),
+// //       datasets: [{  label: 'Avg Price',  data: rows.map(r => Number(r.avg_price)),  borderColor: '#2563eb',fill: false,tension: 0.35}],
+// //     },
+// //     options: { responsive: true, maintainAspectRatio: false },
+// //   });
+// // }
+=======
+=======
+>>>>>>> theirs
 function renderLineChart(ctx, rows) {
   if (priceChart) priceChart.destroy();
   priceChart = new Chart(ctx, {
@@ -41,6 +57,10 @@ function renderLineChart(ctx, rows) {
     options: { responsive: true, maintainAspectRatio: false },
   });
 }
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 
 function renderBarChart(ctx, rows) {
   if (sentimentChart) sentimentChart.destroy();
@@ -48,7 +68,15 @@ function renderBarChart(ctx, rows) {
     type: 'bar',
     data: {
       labels: rows.map(r => r.day),
+<<<<<<< ours
+<<<<<<< ours
+      datasets: [{ label: 'Avg Sentiment', data: rows.map(r => Number(r.avg_sentiment)), backgroundColor: '#16a34a' }],
+=======
       datasets: [{ label: 'Avg Sentiment', data: rows.map(r => r.avg_sentiment), backgroundColor: '#16a34a' }],
+>>>>>>> theirs
+=======
+      datasets: [{ label: 'Avg Sentiment', data: rows.map(r => r.avg_sentiment), backgroundColor: '#16a34a' }],
+>>>>>>> theirs
     },
     options: {
       responsive: true,
