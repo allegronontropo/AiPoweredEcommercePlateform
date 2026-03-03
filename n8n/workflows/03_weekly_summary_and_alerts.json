@@ -11,21 +11,11 @@
       "name": "Cron Weekly",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-<<<<<<< ours
-<<<<<<< ours
       "position": [250, 300]
-=======
-      "position": [210, 250]
->>>>>>> theirs
-=======
-      "position": [210, 250]
->>>>>>> theirs
     },
     {
       "parameters": {
         "operation": "executeQuery",
-<<<<<<< ours
-<<<<<<< ours
         "query": "WITH ranked AS (\n  SELECT p.title, c.name competitor, ph.observed_at, ph.price,\n         LAG(ph.price) OVER (PARTITION BY ph.product_id ORDER BY ph.observed_at) AS prev_price\n  FROM price_history ph\n  JOIN products p ON p.id = ph.product_id\n  JOIN competitors c ON c.id = p.competitor_id\n  WHERE ph.observed_at >= NOW() - INTERVAL '7 days'\n)\nSELECT title, competitor, price, prev_price,\n       ROUND(((price - prev_price)/NULLIF(prev_price,0))::numeric*100,2) AS pct_change\nFROM ranked\nWHERE prev_price IS NOT NULL\n  AND ABS((price - prev_price)/NULLIF(prev_price,0)) >= 0.1\nORDER BY ABS((price - prev_price)/NULLIF(prev_price,0)) DESC\nLIMIT 20;"
       },
       "id": "pg_fetch_changes",
@@ -49,27 +39,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [690, 300]
-=======
-=======
->>>>>>> theirs
-        "query": "WITH ranked AS (\n  SELECT p.title, c.name competitor, ph.observed_at, ph.price,\n         LAG(ph.price) OVER (PARTITION BY ph.product_id ORDER BY ph.observed_at) prev_price\n  FROM price_history ph\n  JOIN products p ON p.id = ph.product_id\n  JOIN competitors c ON c.id = p.competitor_id\n  WHERE ph.observed_at >= NOW() - INTERVAL '7 days'\n)\nSELECT title, competitor, price, prev_price,\n       ROUND(((price - prev_price)/NULLIF(prev_price,0))::numeric*100,2) AS pct_change\nFROM ranked\nWHERE prev_price IS NOT NULL\n  AND ABS((price - prev_price)/NULLIF(prev_price,0)) >= 0.1\nORDER BY ABS((price - prev_price)/NULLIF(prev_price,0)) DESC\nLIMIT 20;"
-      },
-      "id": "pg_weekly_changes",
-      "name": "Fetch Weekly Changes",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2,
-      "position": [430, 250],
-      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
     },
     {
       "parameters": {
         "method": "POST",
-<<<<<<< ours
-<<<<<<< ours
         "url": "https://api.openai.com/v1/chat/completions",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -198,53 +171,3 @@
     "executionOrder": "v1"
   }
 }
-=======
-=======
->>>>>>> theirs
-        "url": "http://api:3000/api/generate-summary",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\"highlights\": $json}"
-      },
-      "id": "http_generate_summary",
-      "name": "Generate AI Summary",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [660, 250]
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{ json: { text: `Weekly competitive intelligence summary:\n\n${$json.summary}` } }];"
-      },
-      "id": "code_prepare_message",
-      "name": "Prepare Alert Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [890, 250]
-    },
-    {
-      "parameters": {
-        "subject": "Weekly Competitive Intelligence Report",
-        "text": "={{$json.text}}"
-      },
-      "id": "send_email",
-      "name": "Send Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2,
-      "position": [1120, 250],
-      "disabled": true
-    }
-  ],
-  "connections": {
-    "Cron Weekly": { "main": [[{ "node": "Fetch Weekly Changes", "type": "main", "index": 0 }]] },
-    "Fetch Weekly Changes": { "main": [[{ "node": "Generate AI Summary", "type": "main", "index": 0 }]] },
-    "Generate AI Summary": { "main": [[{ "node": "Prepare Alert Message", "type": "main", "index": 0 }]] },
-    "Prepare Alert Message": { "main": [[{ "node": "Send Email", "type": "main", "index": 0 }]] }
-  },
-  "active": false,
-  "settings": {}
-}
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
