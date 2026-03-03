@@ -13,7 +13,7 @@ function PriceMomentumChart({ rows }) {
 
   useEffect(() => {
     const labels = rows.map((r) => new Date(r.day).toLocaleDateString());
-    const values = rows.map((r) => Number(r.avg_price));
+    const values = rows.map((r) => Number(r.avg_price)).filter((v) => Number.isFinite(v));
     const movingAvg = values.map((_, i, arr) => {
       const window = arr.slice(Math.max(0, i - 3), i + 1);
       return Number((window.reduce((a, b) => a + b, 0) / window.length).toFixed(2));
@@ -55,6 +55,7 @@ function PriceMomentumChart({ rows }) {
       },
       options: {
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { labels: { color: '#d1d5db' } },
           tooltip: {
@@ -64,8 +65,15 @@ function PriceMomentumChart({ rows }) {
           },
         },
         scales: {
-          x: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(156,163,175,0.13)' } },
-          y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(156,163,175,0.13)' } },
+          x: {
+            ticks: { color: '#9ca3af', maxTicksLimit: 10, maxRotation: 0, autoSkip: true },
+            grid: { color: 'rgba(156,163,175,0.13)' },
+          },
+          y: {
+            ticks: { color: '#9ca3af', callback: (v) => `$${Number(v).toFixed(0)}` },
+            grid: { color: 'rgba(156,163,175,0.13)' },
+            grace: '8%',
+          },
         },
       },
     });
@@ -79,31 +87,43 @@ function SentimentPulseChart({ rows }) {
   const chartRef = useRef(null);
 
   useEffect(() => {
-    const sentiment = rows.map((r) => Number(r.avg_sentiment));
-    const positive = sentiment.filter((s) => s > 0.2).length;
-    const neutral = sentiment.filter((s) => s >= -0.2 && s <= 0.2).length;
-    const negative = sentiment.filter((s) => s < -0.2).length;
+    const labels = rows.map((r) => new Date(r.day).toLocaleDateString());
+    const sentiment = rows.map((r) => {
+      const v = Number(r.avg_sentiment);
+      if (!Number.isFinite(v)) return 0;
+      return Math.max(-1, Math.min(1, v));
+    });
 
     const ctx = canvasRef.current.getContext('2d');
     if (chartRef.current) chartRef.current.destroy();
 
     chartRef.current = new Chart(ctx, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
-        labels: ['Positive days', 'Neutral days', 'Negative days'],
+        labels,
         datasets: [{
-          data: [positive, neutral, negative],
-          backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
-          borderColor: '#111827',
-          borderWidth: 2,
-          hoverOffset: 6,
+          label: 'Avg Sentiment',
+          data: sentiment,
+          borderRadius: 6,
+          backgroundColor: sentiment.map((v) => (v >= 0 ? '#22c55e' : '#ef4444')),
+          borderSkipped: false,
+          maxBarThickness: 22,
         }],
       },
       options: {
         maintainAspectRatio: false,
-        cutout: '63%',
-        plugins: {
-          legend: { labels: { color: '#d1d5db' } },
+        plugins: { legend: { labels: { color: '#d1d5db' } } },
+        scales: {
+          x: {
+            ticks: { color: '#9ca3af', maxTicksLimit: 10, autoSkip: true, maxRotation: 0 },
+            grid: { color: 'rgba(156,163,175,0.1)' },
+          },
+          y: {
+            min: -1,
+            max: 1,
+            ticks: { color: '#9ca3af', stepSize: 0.2 },
+            grid: { color: 'rgba(156,163,175,0.12)' },
+          },
         },
       },
     });
@@ -220,7 +240,7 @@ function App() {
           <PriceMomentumChart rows={prices} />
         </article>
         <article className="card-glass chart-card">
-          <h3>Sentiment Pulse Ring</h3>
+          <h3>Sentiment Stability Bars</h3>
           <SentimentPulseChart rows={sentiment} />
         </article>
       </section>
