@@ -27,6 +27,18 @@ function robustBounds(values) {
   return { min: Math.max(0, Math.floor(tMin - pad)), max: Math.ceil(tMax + pad) };
 }
 
+function niceStep(range, targetTicks = 6) {
+  if (!Number.isFinite(range) || range <= 0) return 10;
+  const rough = range / targetTicks;
+  const magnitude = 10 ** Math.floor(Math.log10(rough));
+  const normalized = rough / magnitude;
+  let nice = 1;
+  if (normalized > 5) nice = 10;
+  else if (normalized > 2) nice = 5;
+  else if (normalized > 1) nice = 2;
+  return nice * magnitude;
+}
+
 function createGradient(ctx, area) {
   const gradient = ctx.createLinearGradient(0, area.bottom, 0, area.top);
   gradient.addColorStop(0, 'rgba(59, 130, 246, 0.04)');
@@ -34,12 +46,12 @@ function createGradient(ctx, area) {
   return gradient;
 }
 
-function PriceMomentumChart({ rows }) {
+function PriceMomentumChart({ rows, windowSize }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
   useEffect(() => {
-    const recentRows = latestWindow(rows, 14);
+    const recentRows = latestWindow(rows, windowSize);
     const labels = recentRows.map((r) => new Date(r.day).toLocaleDateString());
     const values = recentRows.map((r) => Number(r.avg_price)).filter((v) => Number.isFinite(v));
     const movingAvg = values.map((_, i, arr) => {
@@ -47,8 +59,12 @@ function PriceMomentumChart({ rows }) {
       return Number((window.reduce((a, b) => a + b, 0) / window.length).toFixed(2));
     });
 
-    const { min: yMin, max: yMax } = robustBounds(values);
+    const { min: rawMin, max: rawMax } = robustBounds(values);
+    const priceStep = niceStep(rawMax - rawMin, 6);
+    const yMin = Math.floor(rawMin / priceStep) * priceStep;
+    const yMax = Math.ceil(rawMax / priceStep) * priceStep;
 
+    if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (chartRef.current) chartRef.current.destroy();
 
@@ -86,6 +102,7 @@ function PriceMomentumChart({ rows }) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        resizeDelay: 150,
         animation: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
@@ -98,13 +115,19 @@ function PriceMomentumChart({ rows }) {
         },
         scales: {
           x: {
+            offset: false,
             ticks: { color: '#9ca3af', maxTicksLimit: 7, maxRotation: 0, autoSkip: true },
             grid: { color: 'rgba(156,163,175,0.13)' },
           },
           y: {
+            bounds: 'ticks',
             min: yMin,
             max: yMax,
-            ticks: { color: '#9ca3af', callback: (v) => `$${Number(v).toFixed(0)}` },
+            ticks: {
+              color: '#9ca3af',
+              stepSize: priceStep,
+              callback: (v) => `$${Number(v).toFixed(0)}`,
+            },
             grid: { color: 'rgba(156,163,175,0.13)' },
           },
         },
@@ -113,17 +136,17 @@ function PriceMomentumChart({ rows }) {
     return () => {
       if (chartRef.current) chartRef.current.destroy();
     };
-  }, [rows]);
+  }, [rows, windowSize]);
 
-  return <canvas ref={canvasRef} />;
+  return <div className="chart-canvas-wrap"><canvas ref={canvasRef} /></div>;
 }
 
-function SentimentPulseChart({ rows }) {
+function SentimentPulseChart({ rows, windowSize }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
   useEffect(() => {
-    const recentRows = latestWindow(rows, 10);
+    const recentRows = latestWindow(rows, windowSize);
     const labels = recentRows.map((r) => new Date(r.day).toLocaleDateString());
     const sentiment = recentRows.map((r) => {
       const v = Number(r.avg_sentiment);
@@ -131,6 +154,7 @@ function SentimentPulseChart({ rows }) {
       return Math.max(-1, Math.min(1, v));
     });
 
+    if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (chartRef.current) chartRef.current.destroy();
 
@@ -150,14 +174,17 @@ function SentimentPulseChart({ rows }) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        resizeDelay: 150,
         animation: false,
         plugins: { legend: { labels: { color: '#d1d5db' } } },
         scales: {
           x: {
+            offset: false,
             ticks: { color: '#9ca3af', maxTicksLimit: 10, autoSkip: true, maxRotation: 0 },
             grid: { color: 'rgba(156,163,175,0.1)' },
           },
           y: {
+            bounds: 'ticks',
             min: -1,
             max: 1,
             ticks: { color: '#9ca3af', stepSize: 0.2 },
@@ -169,9 +196,9 @@ function SentimentPulseChart({ rows }) {
     return () => {
       if (chartRef.current) chartRef.current.destroy();
     };
-  }, [rows]);
+  }, [rows, windowSize]);
 
-  return <canvas ref={canvasRef} />;
+  return <div className="chart-canvas-wrap"><canvas ref={canvasRef} /></div>;
 }
 
 const fallback = {
@@ -192,6 +219,8 @@ function App() {
   const [category, setCategory] = useState('');
   const [days, setDays] = useState('30');
   const [warning, setWarning] = useState('');
+  const [priceWindow, setPriceWindow] = useState(14);
+  const [sentimentWindow, setSentimentWindow] = useState(10);
 
   const avgSentiment = useMemo(() => {
     if (!sentiment.length) return '0.000';
@@ -278,12 +307,26 @@ function App() {
 
       <section className="charts">
         <article className="card-glass chart-card">
-          <h3>Price Momentum Ribbon (Last 14 Days)</h3>
-          <PriceMomentumChart rows={prices} />
+          <div className="chart-head">
+            <h3>Price Momentum Ribbon (Last {priceWindow} Days)</h3>
+            <select className="window-select" value={priceWindow} onChange={(e) => setPriceWindow(Number(e.target.value))}>
+              <option value={14}>14d</option>
+              <option value={21}>21d</option>
+              <option value={30}>30d</option>
+            </select>
+          </div>
+          <PriceMomentumChart rows={prices} windowSize={priceWindow} />
         </article>
         <article className="card-glass chart-card">
-          <h3>Sentiment Stability Bars (Last 10 Days)</h3>
-          <SentimentPulseChart rows={sentiment} />
+          <div className="chart-head">
+            <h3>Sentiment Stability Bars (Last {sentimentWindow} Days)</h3>
+            <select className="window-select" value={sentimentWindow} onChange={(e) => setSentimentWindow(Number(e.target.value))}>
+              <option value={7}>7d</option>
+              <option value={10}>10d</option>
+              <option value={14}>14d</option>
+            </select>
+          </div>
+          <SentimentPulseChart rows={sentiment} windowSize={sentimentWindow} />
         </article>
       </section>
 
