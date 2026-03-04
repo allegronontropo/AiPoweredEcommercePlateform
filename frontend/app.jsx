@@ -1,5 +1,32 @@
 const { useEffect, useMemo, useRef, useState } = React;
 
+function sortByDay(rows) {
+  return [...rows].sort((a, b) => new Date(a.day) - new Date(b.day));
+}
+
+function latestWindow(rows, size) {
+  const sorted = sortByDay(rows);
+  return sorted.slice(Math.max(0, sorted.length - size));
+}
+
+function robustBounds(values) {
+  if (!values.length) return { min: 0, max: 100 };
+  if (values.length < 8) {
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const pad = Math.max(3, (max - min) * 0.1);
+    return { min: Math.max(0, Math.floor(min - pad)), max: Math.ceil(max + pad) };
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const start = Math.floor(sorted.length * 0.1);
+  const end = Math.ceil(sorted.length * 0.9);
+  const trimmed = sorted.slice(start, end);
+  const tMin = Math.min(...trimmed);
+  const tMax = Math.max(...trimmed);
+  const pad = Math.max(5, (tMax - tMin) * 0.15);
+  return { min: Math.max(0, Math.floor(tMin - pad)), max: Math.ceil(tMax + pad) };
+}
+
 function createGradient(ctx, area) {
   const gradient = ctx.createLinearGradient(0, area.bottom, 0, area.top);
   gradient.addColorStop(0, 'rgba(59, 130, 246, 0.04)');
@@ -12,12 +39,15 @@ function PriceMomentumChart({ rows }) {
   const chartRef = useRef(null);
 
   useEffect(() => {
-    const labels = rows.map((r) => new Date(r.day).toLocaleDateString());
-    const values = rows.map((r) => Number(r.avg_price)).filter((v) => Number.isFinite(v));
+    const recentRows = latestWindow(rows, 14);
+    const labels = recentRows.map((r) => new Date(r.day).toLocaleDateString());
+    const values = recentRows.map((r) => Number(r.avg_price)).filter((v) => Number.isFinite(v));
     const movingAvg = values.map((_, i, arr) => {
       const window = arr.slice(Math.max(0, i - 3), i + 1);
       return Number((window.reduce((a, b) => a + b, 0) / window.length).toFixed(2));
     });
+
+    const { min: yMin, max: yMax } = robustBounds(values);
 
     const ctx = canvasRef.current.getContext('2d');
     if (chartRef.current) chartRef.current.destroy();
@@ -54,7 +84,9 @@ function PriceMomentumChart({ rows }) {
         ],
       },
       options: {
+        responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { labels: { color: '#d1d5db' } },
@@ -66,17 +98,21 @@ function PriceMomentumChart({ rows }) {
         },
         scales: {
           x: {
-            ticks: { color: '#9ca3af', maxTicksLimit: 10, maxRotation: 0, autoSkip: true },
+            ticks: { color: '#9ca3af', maxTicksLimit: 7, maxRotation: 0, autoSkip: true },
             grid: { color: 'rgba(156,163,175,0.13)' },
           },
           y: {
+            min: yMin,
+            max: yMax,
             ticks: { color: '#9ca3af', callback: (v) => `$${Number(v).toFixed(0)}` },
             grid: { color: 'rgba(156,163,175,0.13)' },
-            grace: '8%',
           },
         },
       },
     });
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+    };
   }, [rows]);
 
   return <canvas ref={canvasRef} />;
@@ -87,8 +123,9 @@ function SentimentPulseChart({ rows }) {
   const chartRef = useRef(null);
 
   useEffect(() => {
-    const labels = rows.map((r) => new Date(r.day).toLocaleDateString());
-    const sentiment = rows.map((r) => {
+    const recentRows = latestWindow(rows, 10);
+    const labels = recentRows.map((r) => new Date(r.day).toLocaleDateString());
+    const sentiment = recentRows.map((r) => {
       const v = Number(r.avg_sentiment);
       if (!Number.isFinite(v)) return 0;
       return Math.max(-1, Math.min(1, v));
@@ -111,7 +148,9 @@ function SentimentPulseChart({ rows }) {
         }],
       },
       options: {
+        responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         plugins: { legend: { labels: { color: '#d1d5db' } } },
         scales: {
           x: {
@@ -127,6 +166,9 @@ function SentimentPulseChart({ rows }) {
         },
       },
     });
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+    };
   }, [rows]);
 
   return <canvas ref={canvasRef} />;
@@ -236,11 +278,11 @@ function App() {
 
       <section className="charts">
         <article className="card-glass chart-card">
-          <h3>Price Momentum Ribbon</h3>
+          <h3>Price Momentum Ribbon (Last 14 Days)</h3>
           <PriceMomentumChart rows={prices} />
         </article>
         <article className="card-glass chart-card">
-          <h3>Sentiment Stability Bars</h3>
+          <h3>Sentiment Stability Bars (Last 10 Days)</h3>
           <SentimentPulseChart rows={sentiment} />
         </article>
       </section>

@@ -106,9 +106,13 @@ CROSS JOIN LATERAL generate_series(1, 30) AS g(day_offset);
 
 INSERT INTO sentiment_scores (product_id, score, label, model_name, analyzed_at)
 SELECT p.id,
-  ROUND((random() * 2 - 1)::numeric, 3) AS score,
-  CASE WHEN random() > 0.66 THEN 'positive' WHEN random() < 0.33 THEN 'negative' ELSE 'neutral' END,
-  'seed-simulator',
+  ROUND(LEAST(1, GREATEST(-1, sin((p.id + g.day_offset) / 3.0)))::numeric, 3) AS score,
+  CASE
+    WHEN LEAST(1, GREATEST(-1, sin((p.id + g.day_offset) / 3.0))) > 0.2 THEN 'positive'
+    WHEN LEAST(1, GREATEST(-1, sin((p.id + g.day_offset) / 3.0))) < -0.2 THEN 'negative'
+    ELSE 'neutral'
+  END,
+  'seed-deterministic',
   NOW() - (g.day_offset || ' days')::interval
 FROM products p
 CROSS JOIN LATERAL generate_series(1, 30) AS g(day_offset);

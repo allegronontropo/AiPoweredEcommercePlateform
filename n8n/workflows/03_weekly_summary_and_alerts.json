@@ -11,163 +11,63 @@
       "name": "Cron Weekly",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [250, 300]
+      "position": [210, 250]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH ranked AS (\n  SELECT p.title, c.name competitor, ph.observed_at, ph.price,\n         LAG(ph.price) OVER (PARTITION BY ph.product_id ORDER BY ph.observed_at) AS prev_price\n  FROM price_history ph\n  JOIN products p ON p.id = ph.product_id\n  JOIN competitors c ON c.id = p.competitor_id\n  WHERE ph.observed_at >= NOW() - INTERVAL '7 days'\n)\nSELECT title, competitor, price, prev_price,\n       ROUND(((price - prev_price)/NULLIF(prev_price,0))::numeric*100,2) AS pct_change\nFROM ranked\nWHERE prev_price IS NOT NULL\n  AND ABS((price - prev_price)/NULLIF(prev_price,0)) >= 0.1\nORDER BY ABS((price - prev_price)/NULLIF(prev_price,0)) DESC\nLIMIT 20;"
+        "query": "WITH ranked AS (\n  SELECT p.title, c.name competitor, ph.observed_at, ph.price,\n         LAG(ph.price) OVER (PARTITION BY ph.product_id ORDER BY ph.observed_at) prev_price\n  FROM price_history ph\n  JOIN products p ON p.id = ph.product_id\n  JOIN competitors c ON c.id = p.competitor_id\n  WHERE ph.observed_at >= NOW() - INTERVAL '7 days'\n)\nSELECT title, competitor, price, prev_price,\n       ROUND(((price - prev_price)/NULLIF(prev_price,0))::numeric*100,2) AS pct_change\nFROM ranked\nWHERE prev_price IS NOT NULL\n  AND ABS((price - prev_price)/NULLIF(prev_price,0)) >= 0.1\nORDER BY ABS((price - prev_price)/NULLIF(prev_price,0)) DESC\nLIMIT 20;"
       },
-      "id": "pg_fetch_changes",
+      "id": "pg_weekly_changes",
       "name": "Fetch Weekly Changes",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [470, 300],
-      "credentials": {
-        "postgres": {
-          "id": "1",
-          "name": "Postgres"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const changes = $input.all();\nif (changes.length === 0) {\n  return [{ json: { summary: 'No significant price changes this week.' } }];\n}\n// Format changes into a readable list\nconst lines = changes.map(item => {\n  const c = item.json;\n  return `- ${c.title} (${c.competitor}): ${c.prev_price} → ${c.price} (${c.pct_change}%)`;\n}).join('\\n');\nreturn [{\n  json: {\n    prompt: `Summarize the following competitive intelligence price changes in a professional tone for a business report:\\n\\n${lines}`\n  }\n}];"
-      },
-      "id": "code_prepare_prompt",
-      "name": "Prepare AI Prompt",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [690, 300]
+      "position": [430, 250],
+      "credentials": { "postgres": { "id": "replace_me", "name": "Postgres" } }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer {{ $env.OPENAI_API_KEY }}"
-            }
-          ]
-        },
+        "url": "http://api:3000/api/generate-summary",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"model\": \"gpt-3.5-turbo\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a business analyst. Write a concise summary of the price changes provided.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"={{ $json.prompt }}\"\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 300\n}",
-        "options": {
-          "timeout": 20000
-        }
+        "jsonBody": "={\"highlights\": $json}"
       },
-      "id": "http_openai_summary",
+      "id": "http_generate_summary",
       "name": "Generate AI Summary",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [910, 300]
+      "position": [660, 250]
     },
     {
       "parameters": {
-        "jsCode": "const response = $json;\nlet summary = 'Unable to generate summary.';\nif (response.choices && response.choices[0] && response.choices[0].message) {\n  summary = response.choices[0].message.content.trim();\n}\nreturn [{\n  json: {\n    subject: 'Weekly Competitive Intelligence Report',\n    text: `Here is your weekly summary of significant price changes:\\n\\n${summary}`\n  }\n}];"
+        "jsCode": "return [{ json: { text: `Weekly competitive intelligence summary:\n\n${$json.summary}` } }];"
       },
-      "id": "code_parse_summary",
-      "name": "Parse AI Summary",
+      "id": "code_prepare_message",
+      "name": "Prepare Alert Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1130, 300]
+      "position": [890, 250]
     },
     {
       "parameters": {
-        "fromEmail": "={{ $env.SMTP_FROM }}",
-        "toEmail": "={{ $env.ALERT_EMAIL }}",
-        "subject": "={{ $json.subject }}",
-        "text": "={{ $json.text }}",
-        "options": {}
+        "subject": "Weekly Competitive Intelligence Report",
+        "text": "={{$json.text}}"
       },
-      "id": "email_send",
+      "id": "send_email",
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2,
-      "position": [1350, 300],
-      "credentials": {
-        "smtp": {
-          "id": "2",
-          "name": "SMTP"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Log any errors\nconsole.error('Weekly summary error:', $json.error);\nreturn [];"
-      },
-      "id": "code_error_handler",
-      "name": "Error Handler",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [250, 550]
+      "position": [1120, 250],
+      "disabled": true
     }
   ],
   "connections": {
-    "Cron Weekly": {
-      "main": [
-        [
-          {
-            "node": "Fetch Weekly Changes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Weekly Changes": {
-      "main": [
-        [
-          {
-            "node": "Prepare AI Prompt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare AI Prompt": {
-      "main": [
-        [
-          {
-            "node": "Generate AI Summary",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generate AI Summary": {
-      "main": [
-        [
-          {
-            "node": "Parse AI Summary",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse AI Summary": {
-      "main": [
-        [
-          {
-            "node": "Send Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Cron Weekly": { "main": [[{ "node": "Fetch Weekly Changes", "type": "main", "index": 0 }]] },
+    "Fetch Weekly Changes": { "main": [[{ "node": "Generate AI Summary", "type": "main", "index": 0 }]] },
+    "Generate AI Summary": { "main": [[{ "node": "Prepare Alert Message", "type": "main", "index": 0 }]] },
+    "Prepare Alert Message": { "main": [[{ "node": "Send Email", "type": "main", "index": 0 }]] }
   },
   "active": false,
-  "settings": {
-    "executionOrder": "v1"
-  }
+  "settings": {}
 }
